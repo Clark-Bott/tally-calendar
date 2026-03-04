@@ -199,6 +199,65 @@ To cut a release:
 
 ---
 
+## CI/CD (GitHub Actions)
+
+The workflow at `.github/workflows/build.yml` runs on every push to `main` and on every `v*` tag.
+
+### What runs on every push / PR
+
+| Step | What it does |
+|---|---|
+| `flutter analyze` | Static analysis (non-fatal infos allowed) |
+| `flutter test` | Unit/widget tests |
+| `flutter build apk --debug` | Builds a debug APK |
+| Upload artifact | Saves `tally-debug-<sha>.apk` for 14 days under the Actions run |
+
+To grab the debug APK: go to the [Actions tab](https://github.com/Clark-Bott/tally-calendar/actions), open the latest run, scroll to **Artifacts**.
+
+### What runs on version tags only (`v1.0.0`, etc.)
+
+A signed release APK is built and attached to a GitHub Release automatically.
+
+#### One-time setup: signing secrets
+
+1. Generate a keystore (if you don't have one):
+   ```bash
+   keytool -genkey -v \
+     -keystore tally-release.jks \
+     -keyalg RSA -keysize 2048 -validity 10000 \
+     -alias tally
+   ```
+   Keep this file safe — losing it means you can't update the app on devices that have it installed.
+
+2. Encode it as base64:
+   ```bash
+   base64 -w0 tally-release.jks
+   ```
+
+3. Add these four secrets to the GitHub repo  
+   (**Settings → Secrets and variables → Actions → New repository secret**):
+
+   | Secret name | Value |
+   |---|---|
+   | `KEYSTORE_BASE64` | The base64 string from step 2 |
+   | `KEYSTORE_PASSWORD` | The store password you chose |
+   | `KEY_ALIAS` | `tally` (or whatever alias you used) |
+   | `KEY_PASSWORD` | The key password you chose |
+
+#### Cutting a release
+
+```bash
+# Bump version in pubspec.yaml first (e.g. 1.1.0+2), then:
+git add pubspec.yaml
+git commit -m "chore: bump version to 1.1.0"
+git tag v1.1.0
+git push && git push --tags
+```
+
+GitHub Actions will build the signed APK and publish it as a Release within a few minutes.
+
+---
+
 ## Clark's notes (agent context)
 
 > This section is for the AI assistant (Clark) to pick up context between sessions.
