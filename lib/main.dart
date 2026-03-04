@@ -11,9 +11,7 @@
 /// 3. [runApp] launches the widget tree.
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'database_helper.dart';
-import 'models.dart';
 import 'calendar_screen.dart';
 
 // ---------------------------------------------------------------------------
@@ -47,7 +45,7 @@ class TallyCalendarApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Tally Calendar',
+      title: 'Tally',
       // Material 3 theme generated from a teal seed colour.
       // Primary surfaces (AppBar, FAB) derive their colour from this scheme.
       theme: ThemeData(

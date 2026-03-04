@@ -143,6 +143,23 @@ class DatabaseHelper {
     return result;
   }
 
+  /// Returns all entries for a given [year], keyed by their date string.
+  Future<Map<String, DayEntry>> getEntriesForYear(int year) async {
+    final db = await database;
+    final prefix = year.toString().padLeft(4, '0');
+    final maps = await db.query(
+      'entries',
+      where: 'date LIKE ?',
+      whereArgs: ['$prefix%'],
+    );
+    final result = <String, DayEntry>{};
+    for (final m in maps) {
+      final entry = DayEntry.fromMap(m);
+      result[entry.date] = entry;
+    }
+    return result;
+  }
+
   /// Returns every stored entry in ascending date order.
   ///
   /// Used exclusively by the CSV export feature to produce a full data dump.
