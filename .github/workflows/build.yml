@@ -58,17 +58,20 @@ jobs:
 
       # -----------------------------------------------------------------------
       # Release APK (only on version tags: v1.0.0, v1.2.3, etc.)
-      # Requires these repository secrets to be set:
+      #
+      # Required repository secrets:
       #   KEYSTORE_BASE64   — base64-encoded .jks keystore file
       #   KEYSTORE_PASSWORD — store password
       #   KEY_ALIAS         — key alias inside the keystore
       #   KEY_PASSWORD      — key password
+      #
       # See DEVELOPMENT.md for instructions on generating and encoding the key.
       # -----------------------------------------------------------------------
       - name: Decode keystore
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/tally-release.jks
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode \
+            > android/app/tally-release.jks
 
       - name: Write key.properties
         if: startsWith(github.ref, 'refs/tags/v')
@@ -79,62 +82,6 @@ jobs:
           keyAlias=${{ secrets.KEY_ALIAS }}
           storeFile=tally-release.jks
           EOF
-
-      - name: Configure Gradle signing
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          # Patch build.gradle to load key.properties and apply signingConfig
-          python3 - <<'PYEOF'
-          import re, pathlib
-
-          gradle = pathlib.Path('android/app/build.gradle')
-          text = gradle.read_text()
-
-          # Insert keystoreProperties block before android { if not already present
-          if 'keystoreProperties' not in text:
-              insert = '''def keystorePropertiesFile = rootProject.file("key.properties")
-          def keystoreProperties = new Properties()
-          if (keystorePropertiesFile.exists()) {
-              keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-          }
-
-          '''
-              text = insert + text
-
-          # Add signingConfigs block inside android { if not already present
-          if 'signingConfigs' not in text:
-              text = text.replace(
-                  'android {',
-                  '''android {
-              signingConfigs {
-                  release {
-                      keyAlias keystoreProperties['keyAlias']
-                      keyPassword keystoreProperties['keyPassword']
-                      storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
-                      storePassword keystoreProperties['storePassword']
-                  }
-              }''',
-                  1
-              )
-
-          # Wire release buildType to use signingConfigs.release
-          text = re.sub(
-              r'(release\s*\{)(\s*)(// TODO: Add your own signing config)',
-              r'\1\2signingConfig signingConfigs.release',
-              text
-          )
-          # Also try the plain release block
-          if 'signingConfig signingConfigs.release' not in text:
-              text = re.sub(
-                  r'(buildTypes\s*\{[^}]*release\s*\{)',
-                  r'\1\n            signingConfig signingConfigs.release',
-                  text,
-                  flags=re.DOTALL
-              )
-
-          gradle.write_text(text)
-          print("build.gradle patched for signing")
-          PYEOF
 
       - name: Build release APK
         if: startsWith(github.ref, 'refs/tags/v')
