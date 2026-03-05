@@ -31,7 +31,11 @@ class _DayDetailScreenState extends State<DayDetailScreen> {
 
   @override
   void dispose() {
-    _debounce?.cancel();
+    // If a save is pending, fire it now before we lose the widget.
+    if (_debounce?.isActive ?? false) {
+      _debounce!.cancel();
+      _save();
+    }
     _commentController.dispose();
     _tallyController.dispose();
     super.dispose();

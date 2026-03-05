@@ -104,7 +104,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ];
     final csv = const ListToCsvConverter().convert(rows);
     final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/tally_export.csv');
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    final file = File('${dir.path}/tally_export_$ts.csv');
     await file.writeAsString(csv);
     await Share.shareXFiles([XFile(file.path)], text: 'Tally Export');
   }
