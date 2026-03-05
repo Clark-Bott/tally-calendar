@@ -75,7 +75,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       content = await File(path).readAsString();
     }
 
-    final rows = const CsvToListConverter().convert(content);
+    final rows =
+        const CsvToListConverter(shouldParseNumbers: false).convert(content);
     int imported = 0;
     int skipped = 0;
 
