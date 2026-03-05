@@ -1,16 +1,16 @@
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
 // Load signing config from key.properties if present (populated by CI or locally).
 // Local developers: copy android/key.properties.example → android/key.properties and fill in values.
 def keystorePropertiesFile = rootProject.file("key.properties")
 def keystoreProperties = new Properties()
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-}
-
-plugins {
-    id "com.android.application"
-    id "kotlin-android"
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
-    id "dev.flutter.flutter-gradle-plugin"
 }
 
 android {
@@ -46,7 +46,6 @@ android {
 
     buildTypes {
         release {
-            // Uses release keystore when key.properties is present; falls back to debug keys otherwise.
             signingConfig keystoreProperties.containsKey('keyAlias') \
                 ? signingConfigs.release \
                 : signingConfigs.debug
