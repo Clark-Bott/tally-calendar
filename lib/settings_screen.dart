@@ -87,8 +87,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         skipped++;
         continue;
       }
-      final dateStr = row[0].toString();
-      final tally = int.tryParse(row[1].toString());
+      final dateStr = row[0].toString().trim();
+      final tally = int.tryParse(row[1].toString().trim());
       if (tally == null) {
         skipped++;
         continue;
