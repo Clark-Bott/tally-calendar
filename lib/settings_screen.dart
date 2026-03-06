@@ -189,12 +189,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final comment =
           (commentCol < row.length) ? row[commentCol].toString() : '';
 
-      if (tally == 0 && comment.trim().isEmpty) {
-        // No data to store — skip silently
-        skipped++;
-        continue;
-      }
-
       await DatabaseHelper.instance.upsertEntry(
         DayEntry(date: dateStr, tally: tally, comment: comment),
       );

@@ -6,6 +6,7 @@ import 'models.dart';
 import 'utils.dart';
 import 'day_detail_screen.dart';
 import 'settings_screen.dart';
+import 'stats_screen.dart';
 import 'year_screen.dart';
 
 class CalendarScreen extends StatefulWidget {
@@ -85,12 +86,31 @@ class _CalendarScreenState extends State<CalendarScreen> {
         DateTime(_currentMonth.year, _currentMonth.month, 1).weekday;
     final leadingBlanks = (firstWeekday - 1) % 7;
 
+    // Stats for this month
+    final daysWithEntries = _entries.values.where((e) => true).toList();
+    final totalTally = daysWithEntries.fold<int>(0, (sum, e) => sum + e.tally);
+    final nonzeroDays = daysWithEntries.where((e) => e.tally > 0).length;
+    final avgTally = daysWithEntries.isEmpty
+        ? 0.0
+        : totalTally / daysWithEntries.length;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Tally'),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.bar_chart),
+            tooltip: 'Stats',
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const StatsScreen()),
+              );
+              _loadAll();
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.calendar_today),
             tooltip: 'Year view',
@@ -134,6 +154,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ],
             ),
           ),
+          // Stats row
+          if (daysWithEntries.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _statChip('Avg', avgTally.toStringAsFixed(1)),
+                  _statChip('Total', '$totalTally'),
+                  _statChip('Days', '$nonzeroDays'),
+                ],
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Row(
@@ -173,12 +206,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   final dateStr = formatDate(date);
                   final entry = _entries[dateStr];
                   final tally = entry?.tally ?? 0;
+                  final hasEntry = entry != null;
                   final isToday = dateStr == formatDate(_logicalToday);
-                  final color = heatmapColor(tally, _maxTally);
+                  final color = hasEntry
+                      ? heatmapColor(tally, _maxTally)
+                      : Colors.grey.shade200;
 
                   Widget cellChild;
                   if (_hideNumbers) {
-                    if (tally > 0) {
+                    if (hasEntry) {
                       cellChild = Center(
                         child: Text(
                           '$tally',
@@ -202,16 +238,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             fontWeight: isToday
                                 ? FontWeight.bold
                                 : FontWeight.normal,
-                            color: tally > 0
+                            color: hasEntry && tally > 0
                                 ? Colors.white
                                 : Colors.grey.shade700,
                           ),
                         ),
-                        if (tally > 0)
+                        if (hasEntry)
                           Text(
                             '$tally',
-                            style: const TextStyle(
-                                fontSize: 10, color: Colors.white70),
+                            style: TextStyle(
+                                fontSize: 10,
+                                color: tally > 0
+                                    ? Colors.white70
+                                    : Colors.grey.shade500),
                           ),
                       ],
                     );
@@ -261,6 +300,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _statChip(String label, String value) {
+    return Column(
+      children: [
+        Text(value,
+            style: const TextStyle(
+                fontSize: 16, fontWeight: FontWeight.bold)),
+        Text(label,
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+      ],
     );
   }
 }

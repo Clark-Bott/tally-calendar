@@ -15,7 +15,8 @@ class DayDetailScreen extends StatefulWidget {
 }
 
 class _DayDetailScreenState extends State<DayDetailScreen> {
-  late int _tally;
+  /// null means "no value saved" — distinct from 0.
+  int? _tally;
   late TextEditingController _commentController;
   late TextEditingController _tallyController;
   Timer? _debounce;
@@ -23,10 +24,11 @@ class _DayDetailScreenState extends State<DayDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _tally = widget.entry?.tally ?? 0;
+    _tally = widget.entry?.tally;
     _commentController =
         TextEditingController(text: widget.entry?.comment ?? '');
-    _tallyController = TextEditingController(text: '$_tally');
+    _tallyController =
+        TextEditingController(text: _tally != null ? '$_tally' : '');
   }
 
   @override
@@ -45,18 +47,21 @@ class _DayDetailScreenState extends State<DayDetailScreen> {
   String get _dateLabel =>
       DateFormat('EEEE, MMMM d, yyyy').format(widget.date);
 
+  bool get _hasValue => _tally != null || _commentController.text.trim().isNotEmpty;
+
   void _increment() {
     setState(() {
-      _tally++;
+      _tally = (_tally ?? 0) + 1;
       _tallyController.text = '$_tally';
     });
     _save();
   }
 
   void _decrement() {
-    if (_tally > 0) {
+    final current = _tally ?? 0;
+    if (current > 0) {
       setState(() {
-        _tally--;
+        _tally = current - 1;
         _tallyController.text = '$_tally';
       });
       _save();
@@ -64,15 +69,31 @@ class _DayDetailScreenState extends State<DayDetailScreen> {
   }
 
   Future<void> _save() async {
-    final entry = DayEntry(
-      date: _dateStr,
-      tally: _tally,
-      comment: _commentController.text.trim(),
-    );
-    if (_tally == 0 && entry.comment.isEmpty) {
+    final comment = _commentController.text.trim();
+    if (_tally == null && comment.isEmpty) {
+      // No value at all — remove any existing row
       await DatabaseHelper.instance.deleteEntry(_dateStr);
     } else {
+      final entry = DayEntry(
+        date: _dateStr,
+        tally: _tally ?? 0,
+        comment: comment,
+      );
       await DatabaseHelper.instance.upsertEntry(entry);
+    }
+  }
+
+  Future<void> _clearEntry() async {
+    setState(() {
+      _tally = null;
+      _tallyController.text = '';
+      _commentController.text = '';
+    });
+    await DatabaseHelper.instance.deleteEntry(_dateStr);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Entry cleared')),
+      );
     }
   }
 
@@ -83,6 +104,14 @@ class _DayDetailScreenState extends State<DayDetailScreen> {
         title: Text(_dateLabel),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
+        actions: [
+          if (_hasValue)
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: 'Clear entry',
+              onPressed: _clearEntry,
+            ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(24),
@@ -117,8 +146,18 @@ class _DayDetailScreenState extends State<DayDetailScreen> {
                     decoration: const InputDecoration(
                       border: OutlineInputBorder(),
                       contentPadding: EdgeInsets.symmetric(vertical: 8),
+                      hintText: '–',
                     ),
                     onChanged: (val) {
+                      if (val.isEmpty) {
+                        setState(() => _tally = null);
+                        _debounce?.cancel();
+                        _debounce = Timer(
+                          const Duration(milliseconds: 500),
+                          _save,
+                        );
+                        return;
+                      }
                       final parsed = int.tryParse(val);
                       if (parsed != null && parsed >= 0) {
                         setState(() {

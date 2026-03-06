@@ -16,9 +16,14 @@ DateTime getLogicalToday() {
 String formatDate(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
 
 /// Maps a [tally] value to a heatmap colour relative to [maxTally].
+///
+/// Returns grey for tally == 0. For entries that exist with tally 0,
+/// callers should use this (which returns grey) — the distinction between
+/// "no entry" (grey.shade200) and "entry with 0" (green.shade100) is
+/// handled at the call site.
 Color heatmapColor(int tally, int maxTally) {
-  if (tally == 0) return Colors.grey.shade200;
-  if (maxTally == 0) return Colors.grey.shade200;
+  if (tally == 0) return Colors.green.shade100;
+  if (maxTally == 0) return Colors.green.shade100;
   final t = (tally / maxTally).clamp(0.0, 1.0);
   if (t < 0.5) {
     final s = t / 0.5;
