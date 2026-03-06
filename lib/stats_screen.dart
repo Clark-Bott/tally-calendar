@@ -3,7 +3,6 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'database_helper.dart';
 import 'models.dart';
-import 'utils.dart';
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -293,7 +292,7 @@ class _StatsScreenState extends State<StatsScreen> {
               showTitles: true,
               reservedSize: 36,
               getTitlesWidget: (value, meta) {
-                return Text('${value.toStringAsFixed(0)}',
+                return Text(value.toStringAsFixed(0),
                     style: const TextStyle(fontSize: 9));
               },
             ),
@@ -316,7 +315,7 @@ class _StatsScreenState extends State<StatsScreen> {
             dotData: const FlDotData(show: false),
             belowBarData: BarAreaData(
               show: true,
-              color: Colors.teal.withOpacity(0.15),
+              color: Colors.teal.withValues(alpha: 0.15),
             ),
           ),
         ],
