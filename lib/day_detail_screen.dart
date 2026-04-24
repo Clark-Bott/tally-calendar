@@ -55,14 +55,9 @@ class _DayDetailScreenState extends State<DayDetailScreen> {
   }
 
   Future<void> _save() async {
-    final comment = _commentController.text.trim();
-    if (_tally == 0 && comment.isEmpty) {
-      await DatabaseHelper.instance.deleteEntry(_dateStr);
-    } else {
-      await DatabaseHelper.instance.upsertEntry(
-        DayEntry(date: _dateStr, tally: _tally, comment: comment),
-      );
-    }
+    await DatabaseHelper.instance.upsertEntry(
+      DayEntry(date: _dateStr, tally: _tally, comment: _commentController.text.trim()),
+    );
   }
 
   Future<void> _clearEntry() async {
