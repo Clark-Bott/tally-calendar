@@ -15,31 +15,26 @@ class DayDetailScreen extends StatefulWidget {
 }
 
 class _DayDetailScreenState extends State<DayDetailScreen> {
-  /// null means "no value saved" — distinct from 0.
-  int? _tally;
+  late int _tally;
   late TextEditingController _commentController;
-  late TextEditingController _tallyController;
   Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
-    _tally = widget.entry?.tally;
+    // Auto-zero: opening a day always starts at 0 if no prior entry.
+    _tally = widget.entry?.tally ?? 0;
     _commentController =
         TextEditingController(text: widget.entry?.comment ?? '');
-    _tallyController =
-        TextEditingController(text: _tally != null ? '$_tally' : '');
+    // Persist the initial zero immediately so the heatmap reflects the entry.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _save());
   }
 
   @override
   void dispose() {
-    // If a save is pending, fire it now before we lose the widget.
-    if (_debounce?.isActive ?? false) {
-      _debounce!.cancel();
-      _save();
-    }
+    _debounce?.cancel();
+    _save();
     _commentController.dispose();
-    _tallyController.dispose();
     super.dispose();
   }
 
@@ -47,46 +42,32 @@ class _DayDetailScreenState extends State<DayDetailScreen> {
   String get _dateLabel =>
       DateFormat('EEEE, MMMM d, yyyy').format(widget.date);
 
-  bool get _hasValue => _tally != null || _commentController.text.trim().isNotEmpty;
-
   void _increment() {
-    setState(() {
-      _tally = (_tally ?? 0) + 1;
-      _tallyController.text = '$_tally';
-    });
+    setState(() => _tally += 1);
     _save();
   }
 
   void _decrement() {
-    final current = _tally ?? 0;
-    if (current > 0) {
-      setState(() {
-        _tally = current - 1;
-        _tallyController.text = '$_tally';
-      });
+    if (_tally > 0) {
+      setState(() => _tally -= 1);
       _save();
     }
   }
 
   Future<void> _save() async {
     final comment = _commentController.text.trim();
-    if (_tally == null && comment.isEmpty) {
-      // No value at all — remove any existing row
+    if (_tally == 0 && comment.isEmpty) {
       await DatabaseHelper.instance.deleteEntry(_dateStr);
     } else {
-      final entry = DayEntry(
-        date: _dateStr,
-        tally: _tally ?? 0,
-        comment: comment,
+      await DatabaseHelper.instance.upsertEntry(
+        DayEntry(date: _dateStr, tally: _tally, comment: comment),
       );
-      await DatabaseHelper.instance.upsertEntry(entry);
     }
   }
 
   Future<void> _clearEntry() async {
     setState(() {
-      _tally = null;
-      _tallyController.text = '';
+      _tally = 0;
       _commentController.text = '';
     });
     await DatabaseHelper.instance.deleteEntry(_dateStr);
@@ -99,13 +80,16 @@ class _DayDetailScreenState extends State<DayDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final hasValue = _tally > 0 || _commentController.text.trim().isNotEmpty;
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(_dateLabel),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         actions: [
-          if (_hasValue)
+          if (hasValue)
             IconButton(
               icon: const Icon(Icons.delete_outline),
               tooltip: 'Clear entry',
@@ -113,102 +97,122 @@ class _DayDetailScreenState extends State<DayDetailScreen> {
             ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Tally',
-                style:
-                    TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            Row(
+      body: Column(
+        children: [
+          // ── Counter area ────────────────────────────────────────────────
+          Expanded(
+            flex: 7,
+            child: Stack(
               children: [
-                ElevatedButton(
-                  onPressed: _decrement,
-                  style: ElevatedButton.styleFrom(
-                    shape: const CircleBorder(),
-                    padding: const EdgeInsets.all(16),
-                    backgroundColor: Colors.red.shade100,
-                  ),
-                  child:
-                      const Icon(Icons.remove, color: Colors.red, size: 28),
-                ),
-                const SizedBox(width: 16),
-                SizedBox(
-                  width: 80,
-                  child: TextField(
-                    controller: _tallyController,
-                    keyboardType: TextInputType.number,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                        fontSize: 32, fontWeight: FontWeight.bold),
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(vertical: 8),
-                      hintText: '–',
+                // Left tap zone (decrement)
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: screenWidth / 2,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _decrement,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 20),
+                        child: Icon(
+                          Icons.chevron_left,
+                          size: 48,
+                          color: _tally > 0
+                              ? Colors.grey.shade400
+                              : Colors.grey.shade200,
+                        ),
+                      ),
                     ),
-                    onChanged: (val) {
-                      if (val.isEmpty) {
-                        setState(() => _tally = null);
-                        _debounce?.cancel();
-                        _debounce = Timer(
-                          const Duration(milliseconds: 500),
-                          _save,
-                        );
-                        return;
-                      }
-                      final parsed = int.tryParse(val);
-                      if (parsed != null && parsed >= 0) {
-                        setState(() {
-                          _tally = parsed;
-                        });
-                        _debounce?.cancel();
-                        _debounce = Timer(
-                          const Duration(milliseconds: 500),
-                          _save,
-                        );
-                      }
-                    },
                   ),
                 ),
-                const SizedBox(width: 16),
-                ElevatedButton(
-                  onPressed: _increment,
-                  style: ElevatedButton.styleFrom(
-                    shape: const CircleBorder(),
-                    padding: const EdgeInsets.all(16),
-                    backgroundColor: Colors.green.shade100,
+                // Right tap zone (increment)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: screenWidth / 2,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _increment,
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 20),
+                        child: Icon(
+                          Icons.chevron_right,
+                          size: 48,
+                          color: Colors.grey.shade400,
+                        ),
+                      ),
+                    ),
                   ),
-                  child:
-                      const Icon(Icons.add, color: Colors.green, size: 28),
+                ),
+                // Big number
+                Center(
+                  child: Text(
+                    '$_tally',
+                    style: TextStyle(
+                      fontSize: 120,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
                 ),
               ],
             ),
-
-            const SizedBox(height: 32),
-
-            const Text('Comment',
-                style:
-                    TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _commentController,
-              maxLines: 5,
-              decoration: const InputDecoration(
-                hintText: 'Add a note for this day...',
-                border: OutlineInputBorder(),
+          ),
+          // ── Notes area ──────────────────────────────────────────────────
+          Expanded(
+            flex: 3,
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: Colors.grey.shade300),
+                ),
               ),
-              onChanged: (_) {
-                _debounce?.cancel();
-                _debounce = Timer(
-                  const Duration(milliseconds: 500),
-                  _save,
-                );
-              },
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Notes',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Expanded(
+                    child: TextField(
+                      controller: _commentController,
+                      maxLines: null,
+                      expands: true,
+                      textAlignVertical: TextAlignVertical.top,
+                      decoration: const InputDecoration(
+                        hintText: 'Add a note…',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.all(10),
+                      ),
+                      onChanged: (_) {
+                        _debounce?.cancel();
+                        _debounce = Timer(
+                          const Duration(milliseconds: 500),
+                          _save,
+                        );
+                        // Rebuild to update the delete button visibility.
+                        setState(() {});
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
