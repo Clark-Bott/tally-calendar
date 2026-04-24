@@ -18,6 +18,7 @@ class _DayDetailScreenState extends State<DayDetailScreen> {
   late int _tally;
   late TextEditingController _commentController;
   Timer? _debounce;
+  bool _hasEntry = true; // false only after explicit clear
 
   @override
   void initState() {
@@ -64,6 +65,7 @@ class _DayDetailScreenState extends State<DayDetailScreen> {
     setState(() {
       _tally = 0;
       _commentController.text = '';
+      _hasEntry = false;
     });
     await DatabaseHelper.instance.deleteEntry(_dateStr);
     if (mounted) {
@@ -75,7 +77,7 @@ class _DayDetailScreenState extends State<DayDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final hasValue = _tally > 0 || _commentController.text.trim().isNotEmpty;
+    final hasValue = _hasEntry;
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
