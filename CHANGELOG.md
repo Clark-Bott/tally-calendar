@@ -4,6 +4,13 @@ All notable changes to Tally Calendar are documented here.
 
 ---
 
+## [1.4.3] - 2026-04-24
+
+### Fixed
+- The delete (trash) button now appears whenever there is any entry for a day, not just when the tally is greater than zero. It disappears only after explicitly clearing the entry.
+
+---
+
 ## [1.4.2] - 2026-04-24
 
 ### Fixed
