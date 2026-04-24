@@ -16,7 +16,8 @@ class CalendarScreen extends StatefulWidget {
   State<CalendarScreen> createState() => _CalendarScreenState();
 }
 
-class _CalendarScreenState extends State<CalendarScreen> {
+class _CalendarScreenState extends State<CalendarScreen>
+    with WidgetsBindingObserver {
   late DateTime _currentMonth;
   late DateTime _logicalToday;
   Map<String, DayEntry> _entries = {};
@@ -26,9 +27,44 @@ class _CalendarScreenState extends State<CalendarScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _logicalToday = getLogicalToday();
     _currentMonth = DateTime(_logicalToday.year, _logicalToday.month, 1);
     _loadAll();
+    // Open today's detail screen after the first frame on cold start.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openToday());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _openToday();
+    }
+  }
+
+  /// Navigates to [DayDetailScreen] for the current logical day.
+  ///
+  /// Only pushes if [CalendarScreen] is currently the top route, so we don't
+  /// interrupt the user if they're already looking at a day or another screen.
+  Future<void> _openToday() async {
+    if (!mounted) return;
+    if (ModalRoute.of(context)?.isCurrent != true) return;
+    _logicalToday = getLogicalToday();
+    if (_currentMonth.year != _logicalToday.year ||
+        _currentMonth.month != _logicalToday.month) {
+      setState(() {
+        _currentMonth = DateTime(_logicalToday.year, _logicalToday.month, 1);
+      });
+      await _loadAll();
+    }
+    if (!mounted) return;
+    _openDay(_logicalToday);
   }
 
   Future<void> _loadAll() async {
